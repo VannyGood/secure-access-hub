@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --background: 230 15% 8%;
+    --foreground: 210 40% 96%;
+
+    --card: 230 15% 12%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 230 15% 12%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 220 90% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 230 15% 16%;
+    --secondary-foreground: 210 40% 90%;
+
+    --muted: 230 12% 18%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 265 80% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 230 12% 20%;
+    --input: 230 12% 20%;
+    --ring: 220 90% 56%;
+
+    --radius: 0.75rem;
+
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(220, 90%, 56%), hsl(265, 80%, 60%));
+    --gradient-card: linear-gradient(135deg, hsl(230, 15%, 14%), hsl(230, 15%, 10%));
+    --gradient-glow: linear-gradient(135deg, hsl(220, 90%, 56%, 0.15), hsl(265, 80%, 60%, 0.15));
+
+    --glass-bg: hsl(230, 15%, 12%, 0.6);
+    --glass-border: hsl(230, 12%, 24%, 0.5);
+    --glass-shadow: 0 8px 32px hsl(0, 0%, 0%, 0.3);
+
+    --shadow-card: 0 4px 24px hsl(0, 0%, 0%, 0.2);
+    --shadow-elevated: 0 8px 40px hsl(0, 0%, 0%, 0.3);
+    --shadow-glow: 0 0 40px hsl(220, 90%, 56%, 0.15);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-glow {
+    background: var(--gradient-glow);
+  }
+
+  .card-shadow {
+    box-shadow: var(--shadow-card);
+  }
+
+  .glow-shadow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .tab-active {
+    @apply relative;
+  }
+
+  .tab-active::before {
+    content: '';
+    @apply absolute -top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full;
+    background: var(--gradient-primary);
+    box-shadow: 0 0 8px hsl(220, 90%, 56%, 0.6);
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(230, 15%, 12%) 0%,
+      hsl(230, 15%, 18%) 50%,
+      hsl(230, 15%, 12%) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px hsl(220, 90%, 56%, 0.1); }
+    50% { box-shadow: 0 0 30px hsl(220, 90%, 56%, 0.25); }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes success-pop {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .animate-success-pop {
+    animation: success-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes slide-up {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out forwards;
+  }
+}
