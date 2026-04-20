@@ -9,13 +9,14 @@ interface ConfigScreenProps {
   balance: number;
   walletConnected: boolean;
   onNavigate: (tab: 'wallet' | 'config') => void;
-  onBuyPlan: (name: string, price: number, months: number) => boolean;
+  onBuyPlan: (name: string, price: number, months: number) => Promise<boolean>;
 }
 
+// Prices must match server/routes/subscription.ts PLAN_PRICES
 const plans = [
   { name: '1 Month', price: 4.99, months: 1, icon: Zap, benefits: ['5 server locations', 'Unlimited bandwidth', 'No-log policy'] },
-  { name: '3 Months', price: 11.99, months: 3, icon: Star, popular: true, benefits: ['Everything in 1 Month', 'Priority support', 'Save 20%'] },
-  { name: '12 Months', price: 35.99, months: 12, icon: Crown, benefits: ['Everything in 3 Months', 'Dedicated IP option', 'Save 40%'] },
+  { name: '3 Months', price: 12.99, months: 3, icon: Star, popular: true, benefits: ['Everything in 1 Month', 'Priority support', 'Save ~13%'] },
+  { name: '12 Months', price: 49.99, months: 12, icon: Crown, benefits: ['Everything in 3 Months', 'Dedicated IP option', 'Save vs monthly'] },
 ];
 
 export function ConfigScreen({ subscription, balance, walletConnected, onNavigate, onBuyPlan }: ConfigScreenProps) {
@@ -29,18 +30,19 @@ export function ConfigScreen({ subscription, balance, walletConnected, onNavigat
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleBuy = (plan: typeof plans[0]) => {
+  const handleBuy = async (plan: typeof plans[0]) => {
     if (balance < plan.price) {
       toast.error(`Insufficient balance. You need $${(plan.price - balance).toFixed(2)} more.`);
       return;
     }
     setBuying(true);
-    setTimeout(() => {
-      const ok = onBuyPlan(plan.name, plan.price, plan.months);
-      setBuying(false);
+    try {
+      const ok = await onBuyPlan(plan.name, plan.price, plan.months);
       if (ok) toast.success('Subscription activated! Your config is ready.');
-      else toast.error('Purchase failed.');
-    }, 1200);
+      else toast.error('Purchase failed. Check balance and Marzban connection.');
+    } finally {
+      setBuying(false);
+    }
   };
 
   // Active subscription — show config URL

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ArrowDownLeft, ArrowUpRight, CheckCircle, Loader2, Wallet as WalletIcon, Unplug } from 'lucide-react';
+import { Plus, ArrowDownLeft, ArrowUpRight, CheckCircle, Loader2, Wallet as WalletIcon, Unplug, Copy } from 'lucide-react';
 import type { Transaction } from '../store/useAppStore';
 import { TonConnectButton } from '@tonconnect/ui-react';
 
@@ -8,7 +8,8 @@ interface WalletScreenProps {
   transactions: Transaction[];
   walletConnected: boolean;
   walletAddress: string | null;
-  onAddFunds: (amount: number) => void;
+  onAddFunds: (amount: number, method: 'TON' | 'TRC20') => Promise<any>;
+  onConfirmDeposit: (transactionId: string) => Promise<void>;
   onDisconnectWallet: () => void;
 }
 
@@ -16,27 +17,43 @@ const PRESETS = [5, 10, 25];
 
 export function WalletScreen({
   balance, transactions, walletConnected, walletAddress,
-  onAddFunds, onDisconnectWallet,
+  onAddFunds, onConfirmDeposit, onDisconnectWallet,
 }: WalletScreenProps) {
   const [showAddFunds, setShowAddFunds] = useState(false);
+  const [depositMethod, setDepositMethod] = useState<'TON' | 'TRC20' | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<any>(null);
   const [success, setSuccess] = useState(false);
-  const [connecting, setConnecting] = useState(false);
 
-  const handleAdd = (amount: number) => {
-    if (!walletConnected) return;
+  const handleCreateDeposit = async (amount: number) => {
+    if (!walletConnected || !depositMethod) return;
     setLoading(true);
+    const data = await onAddFunds(amount, depositMethod);
+    setLoading(false);
+    if (data && data.transactionId) {
+      setPendingPayment(data);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingPayment) return;
+    setLoading(true);
+    await onConfirmDeposit(pendingPayment.transactionId);
+    setLoading(false);
+    setSuccess(true);
     setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-      onAddFunds(amount);
-      setTimeout(() => {
-        setSuccess(false);
-        setShowAddFunds(false);
-        setCustomAmount('');
-      }, 1500);
-    }, 1500);
+      setSuccess(false);
+      setPendingPayment(null);
+      setDepositMethod(null);
+      setShowAddFunds(false);
+      setCustomAmount('');
+    }, 2000);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    // Might want to add a small toast here if available, but simplest is just copying
   };
 
   return (
@@ -98,12 +115,65 @@ export function WalletScreen({
               {loading ? (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <Loader2 size={36} className="text-primary animate-spin" />
-                  <p className="text-muted-foreground text-sm">Processing payment...</p>
+                  <p className="text-muted-foreground text-sm">Processing request...</p>
                 </div>
               ) : success ? (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <CheckCircle size={48} className="text-success animate-success-pop" />
-                  <p className="text-success font-semibold">Payment Successful!</p>
+                  <p className="text-success font-semibold">Payment Confirmed!</p>
+                </div>
+              ) : pendingPayment ? (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <p className="text-foreground font-semibold">Waiting for Payment</p>
+                    <p className="text-muted-foreground text-xs">Send exactly ${pendingPayment.amount} via {pendingPayment.method}</p>
+                  </div>
+                  
+                  <div className="bg-muted rounded-xl p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Wallet Address:</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono text-foreground break-all mr-2">{pendingPayment.walletAddress}</p>
+                      <button onClick={() => copyToClipboard(pendingPayment.walletAddress)} className="text-primary p-1">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted rounded-xl p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Payment ID / Memo (Required):</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-mono text-foreground font-bold">{pendingPayment.payment_id}</p>
+                      <button onClick={() => copyToClipboard(pendingPayment.payment_id)} className="text-primary p-1">
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mock confirmation button */}
+                  <div className="pt-2">
+                    <button
+                      onClick={handleConfirm}
+                      className="w-full bg-success/20 text-success rounded-xl py-3 font-semibold text-sm hover:bg-success/30 transition-all font-mono"
+                    >
+                      (MOCK) I Have Paid
+                    </button>
+                  </div>
+                  <button onClick={() => setPendingPayment(null)} className="w-full text-muted-foreground text-sm py-2">
+                    Cancel
+                  </button>
+                </div>
+              ) : !depositMethod ? (
+                <div className="space-y-3">
+                  <p className="text-foreground font-semibold text-sm">Select Deposit Method</p>
+                  <button onClick={() => setDepositMethod('TON')} className="w-full glass-card rounded-xl py-3.5 font-semibold flex items-center justify-center gap-2">
+                    TON
+                  </button>
+                  <button onClick={() => setDepositMethod('TRC20')} className="w-full glass-card rounded-xl py-3.5 font-semibold flex items-center justify-center gap-2">
+                    TRC20 (USDT)
+                  </button>
+                  <button onClick={() => setShowAddFunds(false)} className="w-full text-muted-foreground text-sm py-2 mt-2">
+                    Cancel
+                  </button>
                 </div>
               ) : (
                 <>
@@ -112,7 +182,7 @@ export function WalletScreen({
                     {PRESETS.map(amt => (
                       <button
                         key={amt}
-                        onClick={() => handleAdd(amt)}
+                        onClick={() => handleCreateDeposit(amt)}
                         className="glass-card rounded-xl py-3 text-center font-semibold text-foreground hover:scale-[1.03] active:scale-[0.97] transition-transform duration-200"
                       >
                         ${amt}
@@ -130,18 +200,18 @@ export function WalletScreen({
                     <button
                       onClick={() => {
                         const amt = parseFloat(customAmount);
-                        if (amt > 0) handleAdd(amt);
+                        if (amt > 0) handleCreateDeposit(amt);
                       }}
                       className="gradient-primary rounded-xl px-5 py-3 font-semibold text-primary-foreground text-sm hover:opacity-90 active:scale-[0.97] transition-all"
                     >
-                      Add
+                      Next
                     </button>
                   </div>
                   <button
-                    onClick={() => setShowAddFunds(false)}
+                    onClick={() => setDepositMethod(null)}
                     className="w-full text-muted-foreground text-sm py-2"
                   >
-                    Cancel
+                    Back
                   </button>
                 </>
               )}
@@ -175,8 +245,8 @@ export function WalletScreen({
                 <p className="text-foreground text-sm font-medium truncate">{tx.description}</p>
                 <p className="text-muted-foreground text-xs">{tx.date}</p>
               </div>
-              <p className={`font-semibold text-sm ${tx.amount > 0 ? 'text-success' : 'text-foreground'}`}>
-                {tx.amount > 0 ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
+              <p className={`font-semibold text-sm ${tx.type === 'deposit' ? 'text-success' : 'text-foreground'}`}>
+                {tx.type === 'deposit' ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
               </p>
             </div>
           ))

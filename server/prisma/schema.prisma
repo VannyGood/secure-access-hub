@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  telegram_id String   @unique
+  username    String?
+  balance     Float    @default(0.0)
+  created_at  DateTime @default(now())
+
+  transactions  Transaction[]
+  subscriptions Subscription[]
+  vpn_accounts  VpnAccount[]
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  user_id    String
+  amount     Float
+  method     String?  // 'TON', 'TRC20', or null for purchases
+  status     String   // 'pending', 'confirmed', 'failed'
+  payment_id String?  // Optional memo or transaction hash
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+model Subscription {
+  id          String   @id @default(uuid())
+  user_id     String
+  plan        String
+  status      String   // 'active', 'expired', 'canceled'
+  expiry_date DateTime
+
+  user        User     @relation(fields: [user_id], references: [id])
+}
+
+model VpnAccount {
+  id               String   @id @default(uuid())
+  user_id          String
+  uuid             String
+  subscription_url String
+
+  user             User     @relation(fields: [user_id], references: [id])
+}

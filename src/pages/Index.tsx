@@ -18,8 +18,8 @@ const Index = () => {
   const [tonConnectUI] = useTonConnectUI();
   const {
     balance, transactions, subscription, walletConnected, walletAddress,
-    addFunds, buyPlan, setWalletConnection,
-  } = useAppStore();
+    addFunds, confirmDeposit, buyPlan, setWalletConnection,
+  } = useAppStore(telegramUser.id, telegramUser.username);
 
   useEffect(() => {
     if (wallet) {
@@ -51,6 +51,7 @@ const Index = () => {
             walletConnected={walletConnected}
             walletAddress={walletAddress}
             onAddFunds={addFunds}
+            onConfirmDeposit={confirmDeposit}
             onDisconnectWallet={() => tonConnectUI.disconnect()}
           />
         )}

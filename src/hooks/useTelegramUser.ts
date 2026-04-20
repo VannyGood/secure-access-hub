@@ -38,13 +38,40 @@ export function useTelegramUser(): TelegramUser {
         tg.ready?.();
         tg.expand?.();
         const tgUser = tg.initDataUnsafe?.user;
-        if (tgUser) {
+        if (tgUser?.id) {
           setUser({
             firstName: tgUser.first_name || 'User',
             lastName: tgUser.last_name,
             username: tgUser.username,
             photoUrl: tgUser.photo_url,
             id: tgUser.id,
+          });
+          return;
+        }
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const tgParam = params.get('tg');
+      if (tgParam) {
+        const id = Number(tgParam);
+        if (!Number.isNaN(id)) {
+          setUser({
+            firstName: 'Dev',
+            username: 'local_dev',
+            id,
+          });
+          return;
+        }
+      }
+
+      const envDev = import.meta.env.VITE_DEV_TELEGRAM_ID;
+      if (envDev) {
+        const id = Number(envDev);
+        if (!Number.isNaN(id)) {
+          setUser({
+            firstName: 'Dev',
+            username: 'local_dev',
+            id,
           });
         }
       }

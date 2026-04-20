@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface Transaction {
   id: string;
@@ -23,9 +23,6 @@ export interface AppState {
   walletAddress: string | null;
 }
 
-// Subscription URL containing 5 server locations (US, EU, Asia, etc.)
-const MOCK_SUBSCRIPTION_URL = 'https://sub.securenet.io/api/v1/client/subscribe?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.a3f5e2d1-8c4b-4a7e-9f1d-2b6c3e8d4f5a';
-
 const SERVER_LOCATIONS = [
   { flag: '🇺🇸', name: 'United States – Los Angeles', status: 'online' },
   { flag: '🇩🇪', name: 'Germany – Frankfurt', status: 'online' },
@@ -36,15 +33,9 @@ const SERVER_LOCATIONS = [
 
 export { SERVER_LOCATIONS };
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  { id: '1', type: 'deposit', amount: 25, description: 'Wallet top-up', date: '2026-04-10' },
-  { id: '2', type: 'purchase', amount: -4.99, description: '1 Month VPN Plan', date: '2026-04-08' },
-  { id: '3', type: 'deposit', amount: 10, description: 'Wallet top-up', date: '2026-04-05' },
-];
-
-export function useAppStore() {
-  const [balance, setBalance] = useState(30.01);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+export function useAppStore(telegramId?: number, telegramUsername?: string, initData?: string) {
+  const [balance, setBalance] = useState<number>(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [subscription, setSubscription] = useState<Subscription>({
     active: false,
     plan: null,
@@ -53,46 +44,122 @@ export function useAppStore() {
   });
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('jwt_token'));
+
+  // Auth
+  useEffect(() => {
+    if (telegramId && !token) {
+      fetch('/api/auth/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: telegramId, username: telegramUsername, initData })
+      }).then(r => r.json()).then(data => {
+        if (data.token) {
+          setToken(data.token);
+          localStorage.setItem('jwt_token', data.token);
+        }
+      }).catch(console.error);
+    }
+  }, [telegramId, telegramUsername, initData, token]);
+
+  const fetchUserData = useCallback(async () => {
+    if (!token) return;
+    try {
+      const uRes = await fetch('/api/wallet/user', { headers: { Authorization: `Bearer ${token}` } });
+      const tRes = await fetch('/api/wallet/transactions', { headers: { Authorization: `Bearer ${token}` } });
+      const cRes = await fetch('/api/subscription/config', { headers: { Authorization: `Bearer ${token}` } });
+      
+      if (uRes.ok) {
+        const user = await uRes.json();
+        setBalance(user.balance);
+      }
+      
+      if (tRes.ok) {
+        const txs = await tRes.json();
+        setTransactions(txs.map((t: any) => ({
+          id: t.id,
+          type: t.amount < 0 ? 'purchase' : 'deposit',
+          amount: t.amount,
+          description: t.payment_id || 'Transaction',
+          date: new Date(t.created_at).toISOString().split('T')[0]
+        })));
+      }
+
+      if (cRes.ok) {
+        const conf = await cRes.json();
+        setSubscription({
+          active: true,
+          plan: 'Active Plan',
+          expiryDate: 'N/A', // could fetch real expiry date if needed
+          subscriptionUrl: conf.config
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
   const setWalletConnection = useCallback((connected: boolean, address: string | null) => {
     setWalletConnected(connected);
     setWalletAddress(address);
   }, []);
 
-  const addFunds = useCallback((amount: number) => {
-    setBalance(b => b + amount);
-    setTransactions(t => [{
-      id: Date.now().toString(),
-      type: 'deposit',
-      amount,
-      description: 'Wallet top-up via TON',
-      date: new Date().toISOString().split('T')[0],
-    }, ...t]);
-  }, []);
+  const addFunds = useCallback(async (amount: number, method: 'TON' | 'TRC20'): Promise<any> => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/wallet/deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount, method })
+      });
+      return await res.json();
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }, [token]);
 
-  const buyPlan = useCallback((planName: string, price: number, months: number): boolean => {
-    if (balance < price) return false;
-    setBalance(b => b - price);
-    const expiry = new Date();
-    expiry.setMonth(expiry.getMonth() + months);
-    setTransactions(t => [{
-      id: Date.now().toString(),
-      type: 'purchase',
-      amount: -price,
-      description: `${planName} VPN Plan`,
-      date: new Date().toISOString().split('T')[0],
-    }, ...t]);
-    setSubscription({
-      active: true,
-      plan: planName,
-      expiryDate: expiry.toISOString().split('T')[0],
-      subscriptionUrl: MOCK_SUBSCRIPTION_URL,
-    });
-    return true;
-  }, [balance]);
+  const confirmDeposit = useCallback(async (transactionId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/wallet/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ transactionId })
+      });
+      if (res.ok) fetchUserData();
+    } catch (e) {
+      console.error(e);
+    }
+  }, [token, fetchUserData]);
+
+  const buyPlan = useCallback(async (planName: string, price: number, months: number): Promise<boolean> => {
+    if (!token || balance < price) return false;
+    try {
+      const res = await fetch('/api/subscription/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: planName })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error(err?.error || res.statusText);
+        return false;
+      }
+      await fetchUserData();
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }, [token, balance, fetchUserData]);
 
   return {
     balance, transactions, subscription, walletConnected, walletAddress,
-    addFunds, buyPlan, setWalletConnection,
+    addFunds, confirmDeposit, buyPlan, setWalletConnection,
   };
 }
