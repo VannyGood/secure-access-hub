@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, ArrowDownLeft, ArrowUpRight, CheckCircle, Loader2, Wallet as WalletIcon, Unplug, Copy } from 'lucide-react';
 import type { Transaction } from '../store/useAppStore';
 import { TonConnectButton } from '@tonconnect/ui-react';
+import { toast } from 'sonner';
 
 type DepositMethod = 'TON' | 'TRC20';
 
@@ -18,7 +19,7 @@ interface WalletScreenProps {
   transactions: Transaction[];
   walletConnected: boolean;
   walletAddress: string | null;
-  onAddFunds: (amount: number, method: DepositMethod) => Promise<PendingPayment | null>;
+  onAddFunds: (amount: number, method: DepositMethod) => Promise<PendingPayment | { error: string }>;
   onConfirmDeposit: (transactionId: string) => Promise<void>;
   onDepositConfirmed?: () => void;
   onDisconnectWallet: () => void;
@@ -39,12 +40,18 @@ export function WalletScreen({
 
   const handleCreateDeposit = async (amount: number) => {
     if (!depositMethod) return;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Please enter a valid amount.');
+      return;
+    }
     setLoading(true);
     const data = await onAddFunds(amount, depositMethod);
     setLoading(false);
-    if (data && data.transactionId) {
-      setPendingPayment(data);
+    if ('error' in data) {
+      toast.error(data.error);
+      return;
     }
+    if (data.transactionId) setPendingPayment(data);
   };
 
   const handleConfirm = async () => {

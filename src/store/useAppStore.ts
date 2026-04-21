@@ -32,6 +32,8 @@ type DepositResponse = {
   payment_id: string;
 };
 
+type ApiError = { error: string };
+
 export interface AppState {
   balance: number;
   transactions: Transaction[];
@@ -132,19 +134,20 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
     setWalletAddress(address);
   }, []);
 
-  const addFunds = useCallback(async (amount: number, method: DepositMethod): Promise<DepositResponse | null> => {
-    if (!token) return;
+  const addFunds = useCallback(async (amount: number, method: DepositMethod): Promise<DepositResponse | ApiError> => {
+    if (!token) return { error: 'Not authenticated yet. Please open the app from Telegram and wait 1-2 seconds.' };
     try {
       const res = await fetch(apiUrl('/api/wallet/deposit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ amount, method })
       });
-      if (!res.ok) return null;
-      return (await res.json()) as DepositResponse;
+      const payload = (await res.json().catch(() => ({}))) as Partial<DepositResponse & ApiError>;
+      if (!res.ok) return { error: payload.error || `Deposit failed (${res.status})` };
+      return payload as DepositResponse;
     } catch (e) {
       console.error(e);
-      return null;
+      return { error: 'Network error while creating deposit.' };
     }
   }, [token]);
 
