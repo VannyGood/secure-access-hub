@@ -129,25 +129,6 @@ export function ConfigScreen({ subscription, balance, walletConnected, onNavigat
     );
   }
 
-  // Not connected — prompt to connect wallet first
-  if (!walletConnected) {
-    return (
-      <div className="px-4 pt-6 pb-4 flex flex-col items-center justify-center h-[60vh] gap-4 animate-slide-up">
-        <div className="w-16 h-16 rounded-2xl gradient-glow flex items-center justify-center">
-          <Wallet size={28} className="text-primary" />
-        </div>
-        <h2 className="text-foreground font-bold text-lg">Connect Your Wallet</h2>
-        <p className="text-muted-foreground text-sm text-center">Connect your TON wallet first, add funds, then buy a plan here.</p>
-        <button
-          onClick={() => onNavigate('wallet')}
-          className="gradient-primary rounded-xl px-6 py-3 font-semibold text-primary-foreground text-sm mt-2"
-        >
-          Go to Wallet
-        </button>
-      </div>
-    );
-  }
-
   // Connected but no balance
   if (balance <= 0) {
     return (
@@ -171,6 +152,15 @@ export function ConfigScreen({ subscription, balance, walletConnected, onNavigat
   return (
     <div className="px-4 pt-6 pb-4 space-y-5 animate-slide-up">
       <h1 className="text-foreground font-bold text-xl">Choose a Plan</h1>
+
+      {!walletConnected && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-2">
+          <Wallet size={16} className="text-primary flex-shrink-0" />
+          <p className="text-primary text-xs leading-relaxed">
+            TON wallet connection is optional. You can buy plans using your balance after topping up via TON or TRC20.
+          </p>
+        </div>
+      )}
 
       <div className="glass-card rounded-2xl p-4 text-center">
         <p className="text-muted-foreground text-sm">

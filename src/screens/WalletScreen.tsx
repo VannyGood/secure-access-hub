@@ -38,7 +38,7 @@ export function WalletScreen({
   const [success, setSuccess] = useState(false);
 
   const handleCreateDeposit = async (amount: number) => {
-    if (!walletConnected || !depositMethod) return;
+    if (!depositMethod) return;
     setLoading(true);
     const data = await onAddFunds(amount, depositMethod);
     setLoading(false);
@@ -113,7 +113,7 @@ export function WalletScreen({
       </div>
 
       {/* Add Funds */}
-      {walletConnected && (
+      {(
         <>
           {!showAddFunds ? (
             <button
@@ -124,6 +124,13 @@ export function WalletScreen({
             </button>
           ) : (
             <div className="glass-card rounded-2xl p-5 space-y-4">
+              {!walletConnected && (
+                <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 text-center">
+                  <p className="text-primary text-xs">
+                    TON wallet connection is optional for deposits. You can still add funds via TON or TRC20.
+                  </p>
+                </div>
+              )}
               {loading ? (
                 <div className="flex flex-col items-center gap-3 py-6">
                   <Loader2 size={36} className="text-primary animate-spin" />
