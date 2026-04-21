@@ -52,6 +52,7 @@ const Index = () => {
             walletAddress={walletAddress}
             onAddFunds={addFunds}
             onConfirmDeposit={confirmDeposit}
+            onDepositConfirmed={() => setActiveTab('config')}
             onDisconnectWallet={() => tonConnectUI.disconnect()}
           />
         )}

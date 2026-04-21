@@ -7,37 +7,46 @@ const router = Router();
 router.use(authenticate);
 
 // Get User & Balance
-router.get('/user', async (req: AuthRequest, res: Response): Promise<any> => {
+router.get('/user', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.userId }
     });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json(user);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.json(user);
   } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get Transactions
-router.get('/transactions', async (req: AuthRequest, res: Response): Promise<any> => {
+router.get('/transactions', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const transactions = await prisma.transaction.findMany({
       where: { user_id: req.user!.userId },
       orderBy: { created_at: 'desc' }
     });
-    return res.json(transactions);
+    res.json(transactions);
   } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Deposit - Generate pending transaction
-router.post('/deposit', async (req: AuthRequest, res: Response): Promise<any> => {
+router.post('/deposit', async (req: AuthRequest, res: Response): Promise<void> => {
   const { amount, method } = req.body;
   
-  if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-  if (method !== 'TON' && method !== 'TRC20') return res.status(400).json({ error: 'Invalid method' });
+  if (!amount || amount <= 0) {
+    res.status(400).json({ error: 'Invalid amount' });
+    return;
+  }
+  if (method !== 'TON' && method !== 'TRC20') {
+    res.status(400).json({ error: 'Invalid method' });
+    return;
+  }
 
   try {
     const payment_id = uuidv4().substring(0, 8).toUpperCase(); // Generating a unique memo
@@ -52,12 +61,12 @@ router.post('/deposit', async (req: AuthRequest, res: Response): Promise<any> =>
       }
     });
 
-    // Provide the static wallet addresses based on user request
-    const walletAddress = method === 'TON' 
-      ? 'UQBw53idPDcfAewiSiR1eWO3eCHO2XhHa5-E_Km6HscIuwhd'
+    // Static wallet addresses (requested)
+    const walletAddress = method === 'TON'
+      ? 'UQAY0pUwY8fkhDqyqM8Ac2MKg7go4QLiqo1OtP836vBjmLbi'
       : 'TMVy2tQnWfJcatM1ttVrRypa1TuGu6VxQK';
 
-    return res.json({
+    res.json({
       transactionId: transaction.id,
       amount: transaction.amount,
       method: transaction.method,
@@ -66,15 +75,18 @@ router.post('/deposit', async (req: AuthRequest, res: Response): Promise<any> =>
     });
   } catch (error) {
     console.error('Deposit error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Mock confirm payment endpoint
-router.post('/confirm', async (req: AuthRequest, res: Response): Promise<any> => {
+router.post('/confirm', async (req: AuthRequest, res: Response): Promise<void> => {
   const { transactionId } = req.body;
 
-  if (!transactionId) return res.status(400).json({ error: 'Transaction ID is required' });
+  if (!transactionId) {
+    res.status(400).json({ error: 'Transaction ID is required' });
+    return;
+  }
 
   try {
     // Start a transaction: confirm payment and increase balance
@@ -98,10 +110,11 @@ router.post('/confirm', async (req: AuthRequest, res: Response): Promise<any> =>
       return { transaction: updatedTx, balance: updatedUser.balance };
     });
 
-    return res.json(result);
-  } catch (error: any) {
-    console.error('Confirm error:', error.message);
-    return res.status(400).json({ error: error.message || 'Internal server error' });
+    res.json(result);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    console.error('Confirm error:', message);
+    res.status(400).json({ error: message });
   }
 });
 

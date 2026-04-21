@@ -3,13 +3,24 @@ import { Plus, ArrowDownLeft, ArrowUpRight, CheckCircle, Loader2, Wallet as Wall
 import type { Transaction } from '../store/useAppStore';
 import { TonConnectButton } from '@tonconnect/ui-react';
 
+type DepositMethod = 'TON' | 'TRC20';
+
+type PendingPayment = {
+  transactionId: string;
+  amount: number;
+  method: DepositMethod;
+  walletAddress: string;
+  payment_id: string;
+};
+
 interface WalletScreenProps {
   balance: number;
   transactions: Transaction[];
   walletConnected: boolean;
   walletAddress: string | null;
-  onAddFunds: (amount: number, method: 'TON' | 'TRC20') => Promise<any>;
+  onAddFunds: (amount: number, method: DepositMethod) => Promise<PendingPayment | null>;
   onConfirmDeposit: (transactionId: string) => Promise<void>;
+  onDepositConfirmed?: () => void;
   onDisconnectWallet: () => void;
 }
 
@@ -17,13 +28,13 @@ const PRESETS = [5, 10, 25];
 
 export function WalletScreen({
   balance, transactions, walletConnected, walletAddress,
-  onAddFunds, onConfirmDeposit, onDisconnectWallet,
+  onAddFunds, onConfirmDeposit, onDepositConfirmed, onDisconnectWallet,
 }: WalletScreenProps) {
   const [showAddFunds, setShowAddFunds] = useState(false);
-  const [depositMethod, setDepositMethod] = useState<'TON' | 'TRC20' | null>(null);
+  const [depositMethod, setDepositMethod] = useState<DepositMethod | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  const [pendingPayment, setPendingPayment] = useState<any>(null);
+  const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleCreateDeposit = async (amount: number) => {
@@ -48,6 +59,7 @@ export function WalletScreen({
       setDepositMethod(null);
       setShowAddFunds(false);
       setCustomAmount('');
+      onDepositConfirmed?.();
     }, 2000);
   };
 

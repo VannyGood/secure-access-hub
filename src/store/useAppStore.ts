@@ -15,6 +15,23 @@ export interface Subscription {
   subscriptionUrl: string | null;
 }
 
+type DepositMethod = 'TON' | 'TRC20';
+
+type WalletApiTransaction = {
+  id: string;
+  amount: number;
+  payment_id: string | null;
+  created_at: string;
+};
+
+type DepositResponse = {
+  transactionId: string;
+  amount: number;
+  method: DepositMethod;
+  walletAddress: string;
+  payment_id: string;
+};
+
 export interface AppState {
   balance: number;
   transactions: Transaction[];
@@ -33,6 +50,13 @@ const SERVER_LOCATIONS = [
 
 export { SERVER_LOCATIONS };
 
+/** Backend base URL in production (set in Vercel: same value as your deployed API). Empty = same origin `/api…` (dev proxy or Vercel rewrite). */
+function apiUrl(path: string): string {
+  const base = (import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return base ? `${base}${p}` : p;
+}
+
 export function useAppStore(telegramId?: number, telegramUsername?: string, initData?: string) {
   const [balance, setBalance] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -49,7 +73,7 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
   // Auth
   useEffect(() => {
     if (telegramId && !token) {
-      fetch('/api/auth/telegram', {
+      fetch(apiUrl('/api/auth/telegram'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: telegramId, username: telegramUsername, initData })
@@ -65,9 +89,9 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
   const fetchUserData = useCallback(async () => {
     if (!token) return;
     try {
-      const uRes = await fetch('/api/wallet/user', { headers: { Authorization: `Bearer ${token}` } });
-      const tRes = await fetch('/api/wallet/transactions', { headers: { Authorization: `Bearer ${token}` } });
-      const cRes = await fetch('/api/subscription/config', { headers: { Authorization: `Bearer ${token}` } });
+      const uRes = await fetch(apiUrl('/api/wallet/user'), { headers: { Authorization: `Bearer ${token}` } });
+      const tRes = await fetch(apiUrl('/api/wallet/transactions'), { headers: { Authorization: `Bearer ${token}` } });
+      const cRes = await fetch(apiUrl('/api/subscription/config'), { headers: { Authorization: `Bearer ${token}` } });
       
       if (uRes.ok) {
         const user = await uRes.json();
@@ -75,8 +99,8 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
       }
       
       if (tRes.ok) {
-        const txs = await tRes.json();
-        setTransactions(txs.map((t: any) => ({
+        const txs: WalletApiTransaction[] = await tRes.json();
+        setTransactions(txs.map((t) => ({
           id: t.id,
           type: t.amount < 0 ? 'purchase' : 'deposit',
           amount: t.amount,
@@ -108,15 +132,16 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
     setWalletAddress(address);
   }, []);
 
-  const addFunds = useCallback(async (amount: number, method: 'TON' | 'TRC20'): Promise<any> => {
+  const addFunds = useCallback(async (amount: number, method: DepositMethod): Promise<DepositResponse | null> => {
     if (!token) return;
     try {
-      const res = await fetch('/api/wallet/deposit', {
+      const res = await fetch(apiUrl('/api/wallet/deposit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ amount, method })
       });
-      return await res.json();
+      if (!res.ok) return null;
+      return (await res.json()) as DepositResponse;
     } catch (e) {
       console.error(e);
       return null;
@@ -126,7 +151,7 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
   const confirmDeposit = useCallback(async (transactionId: string) => {
     if (!token) return;
     try {
-      const res = await fetch('/api/wallet/confirm', {
+      const res = await fetch(apiUrl('/api/wallet/confirm'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ transactionId })
@@ -140,7 +165,7 @@ export function useAppStore(telegramId?: number, telegramUsername?: string, init
   const buyPlan = useCallback(async (planName: string, price: number, months: number): Promise<boolean> => {
     if (!token || balance < price) return false;
     try {
-      const res = await fetch('/api/subscription/buy', {
+      const res = await fetch(apiUrl('/api/subscription/buy'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ plan: planName })
